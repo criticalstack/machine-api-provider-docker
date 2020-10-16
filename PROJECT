@@ -1,0 +1,10 @@
+domain: crit.sh
+repo: github.com/criticalstack/machine-api-provider-docker
+resources:
+- group: infrastructure
+  kind: DockerMachine
+  version: v1alpha1
+- group: infrastructure
+  kind: DockerInfrastructureProvider
+  version: v1alpha1
+version: "2"
