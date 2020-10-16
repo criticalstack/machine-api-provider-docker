@@ -69,6 +69,15 @@ rules:
 - apiGroups:
   - machine.crit.sh
   resources:
+  - infrastructureproviders
+  - infrastructureproviders/status
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - machine.crit.sh
+  resources:
   - machines
   - machines/status
   verbs:

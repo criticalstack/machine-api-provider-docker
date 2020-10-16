@@ -20,6 +20,8 @@ import (
 	"context"
 	"encoding/json"
 
+	cinderapi "github.com/criticalstack/crit/cmd/cinder/api"
+	"github.com/criticalstack/machine-api/util"
 	"github.com/go-logr/logr"
 	"github.com/go-openapi/spec"
 	corev1 "k8s.io/api/core/v1"
@@ -35,8 +37,6 @@ import (
 
 	"github.com/criticalstack/machine-api-provider-docker/api/v1alpha1"
 )
-
-const OpenAPISchemaSecretName = "config-schema"
 
 // DockerMachineReconciler reconciles a DockerMachine object
 type DockerInfrastructureProviderReconciler struct {
@@ -55,6 +55,70 @@ func (r *DockerInfrastructureProviderReconciler) SetupWithManager(mgr ctrl.Manag
 		WithOptions(options).
 		Complete(r)
 }
+
+// +kubebuilder:rbac:groups=infrastructure.crit.sh,resources=dockerinfrastructureproviders,verbs=get;list;watch
+// +kubebuilder:rbac:groups=infrastructure.crit.sh,resources=dockerinfrastructureproviders/status,verbs=create;update
+// +kubebuilder:rbac:groups=machine.crit.sh,resources=infrastructureproviders;infrastructureproviders/status,verbs=get;list;watch
+// +kubebuilder:rbac:groups=,resources=secrets,verbs=*
+
+func (r *DockerInfrastructureProviderReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, reterr error) {
+	ctx := context.Background()
+	log := r.Log.WithValues("dockerinfrastructureprovider", req.NamespacedName)
+
+	ip := &v1alpha1.DockerInfrastructureProvider{}
+	if err := r.Get(ctx, req.NamespacedName, ip); err != nil {
+		if apierrors.IsNotFound(err) {
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
+	}
+
+	ipOwner, err := util.GetOwnerInfrastructureProvider(ctx, r.Client, ip.ObjectMeta)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if ipOwner == nil {
+		log.Info("InfrastructureProvider Controller has not yet set OwnerRef")
+		return ctrl.Result{}, nil
+	}
+
+	log = log.WithValues("infrastructureprovider", ipOwner.Name)
+
+	s := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      OpenAPISchemaSecretName,
+			Namespace: ip.Namespace,
+		},
+	}
+	if err := r.Get(ctx, client.ObjectKey{Name: s.Name, Namespace: s.Namespace}, s); client.IgnoreNotFound(err) != nil {
+		return ctrl.Result{}, err
+	}
+
+	ip.Status.Ready = !s.GetCreationTimestamp().Time.IsZero() // ready if secret already exists
+	ip.Status.LastUpdated = metav1.Now()
+	defer func() {
+		if err := r.Status().Update(ctx, ip); err != nil {
+			log.Error(err, "failed to update provider status")
+		}
+	}()
+
+	b, err := json.Marshal(schema)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, s, func() error {
+		s.Data = map[string][]byte{"schema": b}
+		return controllerutil.SetControllerReference(ip, s, r.Scheme)
+	}); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	ip.Status.Ready = true
+	return ctrl.Result{}, nil
+}
+
+const OpenAPISchemaSecretName = "config-schema"
 
 var schema = spec.Schema{
 	SchemaProps: spec.SchemaProps{
@@ -96,7 +160,7 @@ var schema = spec.Schema{
 							SchemaProps: spec.SchemaProps{
 								Type:        spec.StringOrArray{"string"},
 								Description: "container image to use",
-								Default:     "criticalstack/cinder:v1.0.0-beta.10",
+								Default:     cinderapi.DefaultNodeImage,
 							},
 						},
 						"containerName": {
@@ -120,50 +184,4 @@ var schema = spec.Schema{
 		},
 		Required: []string{"apiVersion", "kind"},
 	},
-}
-
-// +kubebuilder:rbac:groups=infrastructure.crit.sh,resources=dockerinfrastructureproviders,verbs=get;list;watch
-// +kubebuilder:rbac:groups=infrastructure.crit.sh,resources=dockerinfrastructureproviders/status,verbs=create;update
-// +kubebuilder:rbac:groups=,resources=secrets,verbs=*
-
-func (r *DockerInfrastructureProviderReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, reterr error) {
-	ctx := context.Background()
-	log := r.Log.WithValues("dockerinfrastructureprovider", req.NamespacedName)
-
-	ip := &v1alpha1.DockerInfrastructureProvider{}
-	if err := r.Get(ctx, req.NamespacedName, ip); err != nil {
-		if apierrors.IsNotFound(err) {
-			return ctrl.Result{}, nil
-		}
-		return ctrl.Result{}, err
-	}
-
-	var s corev1.Secret
-	s.SetName(OpenAPISchemaSecretName)
-	s.SetNamespace(ip.Namespace)
-	if err := r.Get(ctx, client.ObjectKey{Name: s.Name, Namespace: s.Namespace}, &s); client.IgnoreNotFound(err) != nil {
-		return ctrl.Result{}, err
-	}
-
-	ip.Status.Ready = !s.GetCreationTimestamp().Time.IsZero() // ready if secret already exists
-	ip.Status.LastUpdated = metav1.Now()
-	defer func() {
-		if err := r.Status().Update(ctx, ip); err != nil {
-			log.Error(err, "failed to update provider status")
-		}
-	}()
-	b, err := json.Marshal(schema)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, &s, func() error {
-		s.Data = map[string][]byte{"schema": b}
-		return controllerutil.SetControllerReference(ip, &s, r.Scheme)
-	}); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	ip.Status.Ready = true
-	return ctrl.Result{}, nil
 }
