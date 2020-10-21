@@ -59,7 +59,7 @@ func (r *DockerInfrastructureProviderReconciler) SetupWithManager(mgr ctrl.Manag
 // +kubebuilder:rbac:groups=infrastructure.crit.sh,resources=dockerinfrastructureproviders,verbs=get;list;watch
 // +kubebuilder:rbac:groups=infrastructure.crit.sh,resources=dockerinfrastructureproviders/status,verbs=create;update
 // +kubebuilder:rbac:groups=machine.crit.sh,resources=infrastructureproviders;infrastructureproviders/status,verbs=get;list;watch
-// +kubebuilder:rbac:groups=,resources=secrets,verbs=*
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=*
 
 func (r *DockerInfrastructureProviderReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, reterr error) {
 	ctx := context.Background()
