@@ -58,7 +58,8 @@ func (r *NodeReconciler) SetupWithManager(mgr ctrl.Manager, options controller.O
 
 // +kubebuilder:rbac:groups=infrastructure.crit.sh,resources=dockermachines,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=infrastructure.crit.sh,resources=dockermachines/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=machine.crit.sh,resources=machines;machines/status,verbs=get;list;watch
+// +kubebuilder:rbac:groups=machine.crit.sh,resources=machines,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=machine.crit.sh,resources=machines/status,verbs=get;list;watch
 // +kubebuilder:rbac:groups=machine.crit.sh,resources=configs;configs/status,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch;create;update;patch;delete
 

@@ -81,6 +81,24 @@ rules:
   - machine.crit.sh
   resources:
   - machines
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - machine.crit.sh
+  resources:
+  - machines
+  - machines/status
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - machine.crit.sh
+  resources:
   - machines/status
   verbs:
   - get
