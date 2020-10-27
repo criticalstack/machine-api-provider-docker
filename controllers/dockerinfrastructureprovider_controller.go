@@ -102,7 +102,7 @@ func (r *DockerInfrastructureProviderReconciler) Reconcile(req ctrl.Request) (_ 
 		}
 	}()
 
-	b, err := json.Marshal(schema)
+	b, err := json.Marshal(r.generateSchema(ctx))
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -118,70 +118,83 @@ func (r *DockerInfrastructureProviderReconciler) Reconcile(req ctrl.Request) (_ 
 	return ctrl.Result{}, nil
 }
 
-const OpenAPISchemaSecretName = "config-schema"
+const (
+	OpenAPISchemaSecretName = "config-schema"
+	defaultClusterName      = "cinder"
+)
 
-var schema = spec.Schema{
-	SchemaProps: spec.SchemaProps{
-		Type:  spec.StringOrArray{"object"},
-		Title: "Docker Worker Config",
-		Properties: map[string]spec.Schema{
-			"apiVersion": {
-				SchemaProps: spec.SchemaProps{
-					Type:    spec.StringOrArray{"string"},
-					Default: v1alpha1.GroupVersion.String(),
-				},
-			},
-			"kind": {
-				SchemaProps: spec.SchemaProps{
-					Type:    spec.StringOrArray{"string"},
-					Default: "DockerMachine",
-				},
-			},
-			"metadata": {
-				SchemaProps: spec.SchemaProps{
-					Type:  spec.StringOrArray{"object"},
-					Title: "Metadata",
-					Properties: map[string]spec.Schema{
-						"name": {
-							SchemaProps: spec.SchemaProps{
-								Type: spec.StringOrArray{"string"},
-							},
-						},
+func (r *DockerInfrastructureProviderReconciler) generateSchema(ctx context.Context) spec.Schema {
+	clusterName := defaultClusterName
+	var nodes corev1.NodeList
+	if err := r.List(ctx, &nodes, client.HasLabels{"node-role.kubernetes.io/master"}); err == nil {
+		for _, n := range nodes.Items {
+			clusterName = n.Name
+			break
+		}
+	}
+	return spec.Schema{
+		SchemaProps: spec.SchemaProps{
+			Type:  spec.StringOrArray{"object"},
+			Title: "Docker Worker Config",
+			Properties: map[string]spec.Schema{
+				"apiVersion": {
+					SchemaProps: spec.SchemaProps{
+						Type:    spec.StringOrArray{"string"},
+						Default: v1alpha1.GroupVersion.String(),
 					},
-					Required: []string{"name"},
 				},
-			},
-			"spec": {
-				SchemaProps: spec.SchemaProps{
-					Type:  spec.StringOrArray{"object"},
-					Title: "Docker Worker Config",
-					Properties: map[string]spec.Schema{
-						"image": {
-							SchemaProps: spec.SchemaProps{
-								Type:        spec.StringOrArray{"string"},
-								Description: "container image to use",
-								Default:     cinderapi.DefaultNodeImage,
-							},
-						},
-						"containerName": {
-							SchemaProps: spec.SchemaProps{
-								Type:        spec.StringOrArray{"string"},
-								Description: "container name",
-								Default:     "cinder-worker",
-							},
-						},
-						"clusterName": {
-							SchemaProps: spec.SchemaProps{
-								Type:        spec.StringOrArray{"string"},
-								Description: "cluster name",
-								Default:     "cinder",
-							},
-						},
+				"kind": {
+					SchemaProps: spec.SchemaProps{
+						Type:    spec.StringOrArray{"string"},
+						Default: "DockerMachine",
 					},
-					Required: []string{"image", "clusterName"},
+				},
+				"metadata": {
+					SchemaProps: spec.SchemaProps{
+						Type:  spec.StringOrArray{"object"},
+						Title: "Metadata",
+						Properties: map[string]spec.Schema{
+							"name": {
+								SchemaProps: spec.SchemaProps{
+									Type: spec.StringOrArray{"string"},
+								},
+							},
+						},
+						Required: []string{"name"},
+					},
+				},
+				"spec": {
+					SchemaProps: spec.SchemaProps{
+						Type:  spec.StringOrArray{"object"},
+						Title: "Docker Worker Config",
+						Properties: map[string]spec.Schema{
+							"image": {
+								SchemaProps: spec.SchemaProps{
+									Type:        spec.StringOrArray{"string"},
+									Description: "container image to use",
+									Default:     cinderapi.DefaultNodeImage,
+								},
+							},
+							"containerName": {
+								SchemaProps: spec.SchemaProps{
+									Type:        spec.StringOrArray{"string"},
+									Description: "container name",
+									Default:     "cinder-worker",
+								},
+							},
+							"clusterName": {
+								SchemaProps: spec.SchemaProps{
+									Type:        spec.StringOrArray{"string"},
+									Description: "cluster name",
+									Default:     clusterName,
+								},
+							},
+						},
+						Required: []string{"image", "clusterName"},
+					},
 				},
 			},
+			Required: []string{"apiVersion", "kind"},
 		},
-		Required: []string{"apiVersion", "kind"},
-	},
+	}
 }
