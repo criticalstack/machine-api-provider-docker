@@ -4,7 +4,7 @@ go 1.14
 
 require (
 	github.com/criticalstack/crit v1.0.3
-	github.com/criticalstack/machine-api v1.0.1
+	github.com/criticalstack/machine-api v1.0.3
 	github.com/go-logr/logr v0.1.0
 	github.com/go-openapi/spec v0.19.3
 	github.com/onsi/ginkgo v1.12.1
