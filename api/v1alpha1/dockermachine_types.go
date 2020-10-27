@@ -23,6 +23,8 @@ import (
 
 const (
 	MachineFinalizer = "dockermachine.infrastructure.crit.sh"
+
+	NodeOwnerLabelName = "infrastructure.crit.sh/dockermachine"
 )
 
 // DockerMachineSpec defines the desired state of DockerMachine

@@ -127,11 +127,6 @@ func (r *DockerMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, re
 		dm.Spec.ProviderID = fmt.Sprintf("docker://%s", dm.Spec.ContainerName)
 	}
 
-	cfg := &machinev1.Config{}
-	if err := r.Get(ctx, client.ObjectKey{Name: m.Spec.ConfigRef.Name, Namespace: m.Namespace}, cfg); err != nil {
-		return ctrl.Result{}, err
-	}
-
 	// TODO(chrism): add label hash of spec (needs config and infra ref fields)
 	// and diff to determine if the machine should be replaced
 	ok, err := docker.MachineExists(ctx, dm)
@@ -141,6 +136,11 @@ func (r *DockerMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, re
 	if ok {
 		log.Info("machine already exists")
 		return ctrl.Result{}, nil
+	}
+
+	cfg := &machinev1.Config{}
+	if err := r.Get(ctx, client.ObjectKey{Name: m.Spec.ConfigRef.Name, Namespace: m.Namespace}, cfg); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	if err := docker.CreateMachine(ctx, dm, cfg); err != nil {
