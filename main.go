@@ -88,6 +88,14 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "DockerInfrastructureProvider")
 		os.Exit(1)
 	}
+	if err = (&controllers.NodeReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("DockerInfrastructureProvider"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr, controller.Options{}); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "DockerInfrastructureProvider")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 
 	setupLog.Info("starting manager")
