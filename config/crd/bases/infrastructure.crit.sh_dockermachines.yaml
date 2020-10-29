@@ -24,14 +24,10 @@ spec:
       description: DockerMachine is the Schema for the dockermachines API
       properties:
         apiVersion:
-          description: 'APIVersion defines the versioned schema of this representation
-            of an object. Servers should convert recognized schemas to the latest
-            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
           type: string
         kind:
-          description: 'Kind is a string value representing the REST resource this
-            object represents. Servers may infer this from the endpoint the client
-            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
           type: string
         metadata:
           type: object
@@ -54,35 +50,27 @@ spec:
         status:
           description: DockerMachineStatus defines the observed state of DockerMachine
           properties:
+            addresses:
+              description: Addresses contains the docker container associated addresses.
+              items:
+                description: MachineAddress contains information for the node's address.
+                properties:
+                  address:
+                    description: The machine address.
+                    type: string
+                  type:
+                    description: Machine address type, one of Hostname, ExternalIP or InternalIP.
+                    type: string
+                required:
+                - address
+                - type
+                type: object
+              type: array
             failureMessage:
-              description: "FailureMessage will be set in the event that there is
-                a terminal problem reconciling the Machine and will contain a more
-                verbose string suitable for logging and human consumption. \n This
-                field should not be set for transitive errors that a controller faces
-                that are expected to be fixed automatically over time (like service
-                outages), but instead indicate that something is fundamentally wrong
-                with the Machine's spec or the configuration of the controller, and
-                that manual intervention is required. Examples of terminal errors
-                would be invalid combinations of settings in the spec, values that
-                are unsupported by the controller, or the responsible controller itself
-                being critically misconfigured. \n Any transient errors that occur
-                during the reconciliation of Machines can be added as events to the
-                Machine object and/or logged in the controller's output."
+              description: "FailureMessage will be set in the event that there is a terminal problem reconciling the Machine and will contain a more verbose string suitable for logging and human consumption. \n This field should not be set for transitive errors that a controller faces that are expected to be fixed automatically over time (like service outages), but instead indicate that something is fundamentally wrong with the Machine's spec or the configuration of the controller, and that manual intervention is required. Examples of terminal errors would be invalid combinations of settings in the spec, values that are unsupported by the controller, or the responsible controller itself being critically misconfigured. \n Any transient errors that occur during the reconciliation of Machines can be added as events to the Machine object and/or logged in the controller's output."
               type: string
             failureReason:
-              description: "FailureReason will be set in the event that there is a
-                terminal problem reconciling the Machine and will contain a succinct
-                value suitable for machine interpretation. \n This field should not
-                be set for transitive errors that a controller faces that are expected
-                to be fixed automatically over time (like service outages), but instead
-                indicate that something is fundamentally wrong with the Machine's
-                spec or the configuration of the controller, and that manual intervention
-                is required. Examples of terminal errors would be invalid combinations
-                of settings in the spec, values that are unsupported by the controller,
-                or the responsible controller itself being critically misconfigured.
-                \n Any transient errors that occur during the reconciliation of Machines
-                can be added as events to the Machine object and/or logged in the
-                controller's output."
+              description: "FailureReason will be set in the event that there is a terminal problem reconciling the Machine and will contain a succinct value suitable for machine interpretation. \n This field should not be set for transitive errors that a controller faces that are expected to be fixed automatically over time (like service outages), but instead indicate that something is fundamentally wrong with the Machine's spec or the configuration of the controller, and that manual intervention is required. Examples of terminal errors would be invalid combinations of settings in the spec, values that are unsupported by the controller, or the responsible controller itself being critically misconfigured. \n Any transient errors that occur during the reconciliation of Machines can be added as events to the Machine object and/or logged in the controller's output."
               type: string
             ready:
               type: boolean

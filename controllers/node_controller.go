@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 
+	cinderapi "github.com/criticalstack/crit/cmd/cinder/api"
 	nodeutil "github.com/criticalstack/crit/pkg/kubernetes/util/node"
 	machinev1 "github.com/criticalstack/machine-api/api/v1alpha1"
 	"github.com/go-logr/logr"
@@ -94,35 +95,35 @@ func (r *NodeReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		if !ok {
 			return ctrl.Result{}, errors.New("cannot find DockerMachine, missing infra annotation")
 		}
-		var amRef corev1.ObjectReference
-		if err := json.Unmarshal([]byte(dockerRefData), &amRef); err != nil {
+		var dmRef corev1.ObjectReference
+		if err := json.Unmarshal([]byte(dockerRefData), &dmRef); err != nil {
 			return ctrl.Result{}, err
 		}
-		//log.Info("machine label not found")
-		am := &infrav1.DockerMachine{}
-		if err := r.Get(ctx, client.ObjectKey{Namespace: metav1.NamespaceSystem, Name: amRef.Name}, am); err != nil {
+		dm := &infrav1.DockerMachine{}
+		if err := r.Get(ctx, client.ObjectKey{Namespace: metav1.NamespaceSystem, Name: dmRef.Name}, dm); err != nil {
 			return ctrl.Result{}, err
 		}
-		if err := r.ensureMachineHasInfraRef(ctx, am, ref); err != nil {
+		if err := r.ensureMachineHasInfraRef(ctx, dm, ref); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 	return ctrl.Result{}, nil
 }
 
-func (r *NodeReconciler) ensureMachineHasInfraRef(ctx context.Context, am *infrav1.DockerMachine, ref corev1.ObjectReference) error {
+// TODO(chrism): move this to the machine controller
+func (r *NodeReconciler) ensureMachineHasInfraRef(ctx context.Context, dm *infrav1.DockerMachine, ref corev1.ObjectReference) error {
 	m := &machinev1.Machine{}
 	if err := r.Get(ctx, client.ObjectKey{Namespace: metav1.NamespaceSystem, Name: ref.Name}, m); err != nil {
 		return err
 	}
-	if m.Spec.InfrastructureRef.Kind == "DockerMachine" && m.Spec.InfrastructureRef.Name == am.Name {
+	if m.Spec.InfrastructureRef != nil && m.Spec.InfrastructureRef.Kind == "DockerMachine" && m.Spec.InfrastructureRef.Name == dm.Name {
 		return nil
 	}
-	m.Spec.InfrastructureRef = corev1.ObjectReference{
-		APIVersion: am.APIVersion,
+	m.Spec.InfrastructureRef = &corev1.ObjectReference{
+		APIVersion: dm.APIVersion,
 		Kind:       "DockerMachine",
-		Name:       am.ObjectMeta.Name,
-		Namespace:  am.Namespace,
+		Name:       dm.ObjectMeta.Name,
+		Namespace:  dm.Namespace,
 	}
 	if err := r.Update(ctx, m); err != nil {
 		return err
@@ -142,7 +143,7 @@ func (r *NodeReconciler) ensureDockerMachineForNode(ctx context.Context, n *core
 		return err
 	}
 	for _, m := range machines.Items {
-		if m.Spec.ProviderID == n.Spec.ProviderID {
+		if m.Spec.ProviderID != "" && m.Spec.ProviderID == n.Spec.ProviderID {
 			log.V(1).Info("node already has a machine associated with it, only needs an annotation")
 			return r.setDockerMachineAnnotation(ctx, &m, n.Name)
 		}
@@ -151,7 +152,7 @@ func (r *NodeReconciler) ensureDockerMachineForNode(ctx context.Context, n *core
 	if err != nil {
 		return err
 	}
-	am := &infrav1.DockerMachine{
+	dm := &infrav1.DockerMachine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      n.Name,
 			Namespace: metav1.NamespaceSystem,
@@ -162,12 +163,32 @@ func (r *NodeReconciler) ensureDockerMachineForNode(ctx context.Context, n *core
 			ContainerName: n.Name,
 			Image:         "",
 		},
-		Status: infrav1.DockerMachineStatus{},
 	}
-	if err := r.Create(ctx, am); err != nil {
+	if err := r.Create(ctx, dm); err != nil {
+		if !apierrors.IsAlreadyExists(err) {
+			return err
+		}
+	}
+	nodes, err := cinderapi.ListNodes(clusterName)
+	if err != nil {
 		return err
 	}
-	return r.setDockerMachineAnnotation(ctx, am, n.Name)
+	addresses := make([]machinev1.MachineAddress, 0)
+	for _, node := range nodes {
+		if node.String() == n.Name {
+			addresses = append(addresses, machinev1.MachineAddress{
+				Type:    machinev1.MachineInternalIP,
+				Address: node.IP(),
+			})
+			break
+		}
+	}
+	dm.Status.Addresses = addresses
+	dm.Status.Ready = true
+	if err := r.Status().Update(ctx, dm); err != nil {
+		return err
+	}
+	return r.setDockerMachineAnnotation(ctx, dm, n.Name)
 }
 
 func (r *NodeReconciler) findNodeCluster(nodeName string) (string, error) {
@@ -177,7 +198,7 @@ func (r *NodeReconciler) findNodeCluster(nodeName string) (string, error) {
 		return "", err
 	}
 	for _, c := range clusters {
-		nodes, err := provider.ListNodes(c)
+		nodes, err := cinderapi.ListNodes(c)
 		if err != nil {
 			return "", err
 		}
@@ -192,7 +213,7 @@ func (r *NodeReconciler) findNodeCluster(nodeName string) (string, error) {
 
 func (r *NodeReconciler) setDockerMachineAnnotation(ctx context.Context, m *infrav1.DockerMachine, name string) error {
 	ref := corev1.ObjectReference{
-		APIVersion: m.APIVersion,
+		APIVersion: infrav1.GroupVersion.String(),
 		Kind:       "DockerMachine",
 		Name:       m.ObjectMeta.Name,
 		Namespace:  m.Namespace,
