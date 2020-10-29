@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	machinev1 "github.com/criticalstack/machine-api/api/v1alpha1"
 	mapierrors "github.com/criticalstack/machine-api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -38,6 +39,10 @@ type DockerMachineSpec struct {
 // DockerMachineStatus defines the observed state of DockerMachine
 type DockerMachineStatus struct {
 	Ready bool `json:"ready"`
+
+	// Addresses contains the docker container associated addresses.
+	Addresses machinev1.MachineAddresses `json:"addresses,omitempty"`
+
 	// FailureReason will be set in the event that there is a terminal problem
 	// reconciling the Machine and will contain a succinct value suitable
 	// for machine interpretation.
