@@ -135,6 +135,9 @@ func (r *DockerMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, re
 	}
 	if ok {
 		log.Info("machine already exists")
+		if err := r.ensureNodeProviderID(ctx, dm.Spec.ContainerName); err != nil {
+			return ctrl.Result{}, err
+		}
 		return ctrl.Result{}, nil
 	}
 
@@ -158,4 +161,21 @@ func (r *DockerMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, re
 	}
 	dm.Status.Ready = true
 	return ctrl.Result{}, nil
+}
+
+func (r *DockerMachineReconciler) ensureNodeProviderID(ctx context.Context, name string) error {
+	n := &corev1.Node{}
+	if err := r.Get(ctx, client.ObjectKey{Name: name}, n); err != nil {
+		return err
+	}
+	if n.Spec.ProviderID != "" {
+		return nil
+	}
+	client, err := kubernetes.NewForConfig(r.config)
+	if err != nil {
+		return err
+	}
+	return nodeutil.PatchNode(ctx, client, name, func(n *corev1.Node) {
+		n.Spec.ProviderID = fmt.Sprintf("docker://%s", name)
+	})
 }

@@ -3,7 +3,7 @@ module github.com/criticalstack/machine-api-provider-docker
 go 1.14
 
 require (
-	github.com/criticalstack/crit v1.0.3
+	github.com/criticalstack/crit v1.0.7
 	github.com/criticalstack/machine-api v1.0.5
 	github.com/go-logr/logr v0.1.0
 	github.com/go-openapi/spec v0.19.3
